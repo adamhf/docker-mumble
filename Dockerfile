@@ -1,32 +1,13 @@
-FROM ubuntu:18.04
+FROM ubuntu:18.04 AS builder
 MAINTAINER Adam Harrison-Fuller <adam@adamhf.io>
 
 # Define Mumble version
 ARG MUMBLE_VERSION=1.3.0
 
 # Create Mumble directories
-RUN mkdir -pv /opt/mumble /etc/mumble /build/mumble
+RUN mkdir -pv /build/mumble
 
 WORKDIR /build/mumble
-
-# Create non-root user
-RUN useradd -ms /sbin/nologin mumble
-
-# Copy config file
-COPY files/config.ini /etc/mumble/config.ini
-
-# Copy SuperUser password update script
-COPY files/supw /usr/local/bin/supw
-RUN chmod +x /usr/local/bin/supw
-
-# Set the bzip archive URL
-ARG BZIP_URL=https://github.com/mumble-voip/mumble/releases/download/${MUMBLE_VERSION}/murmur-static_x86-${MUMBLE_VERSION}.tar.bz2
-
-# Install dependencies, fetch Mumble bzip archive and chown files
-# RUN apk add --update ca-certificates bzip2 tar tzdata wget \
-#     && wget -qO- ${BZIP_URL} | tar -xjv --strip-components=1 -C /opt/mumble \
-#     && apk del ca-certificates bzip2 tar wget && rm -rf /var/cache/apk/* \
-#     && chown -R mumble:mumble /etc/mumble /opt/mumble
 
 RUN apt-get update && apt-get install -y build-essential pkg-config qt5-default qttools5-dev-tools libqt5svg5-dev \
     libboost-dev libasound2-dev libssl-dev \
@@ -43,12 +24,21 @@ RUN git clone https://github.com/mumble-voip/mumble.git mumble &&\
 
 RUN cd mumble && \
     qmake -recursive main.pro CONFIG+=no-client && \
-    make -j4 && \
-    chmod +x release/murmurd && \
-    cp release/murmurd /opt/mumble
+    make -j4
 
-RUN chown mumble:mumble /etc/mumble
 
+FROM ubuntu:18.04
+# Create Mumble directories
+RUN mkdir -pv /opt/mumble /etc/mumble
+
+# Create non-root user
+RUN useradd -ms /sbin/nologin mumble
+# Copy config file
+COPY files/config.ini /etc/mumble/config.ini
+# Copy SuperUser password update script
+COPY files/supw /usr/local/bin/supw
+RUN chmod +x /usr/local/bin/supw
+COPY --from=builder /build/mumble/mumble/release/murmurd /opt/mumble/murmurd
 # Expose ports
 EXPOSE 64738 64738/udp
 
