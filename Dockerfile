@@ -1,14 +1,16 @@
-FROM alpine:3.10
-LABEL maintainer="Chris Kankiewicz <Chris@ChrisKankiewicz.com>"
+FROM ubuntu:18.04
+MAINTAINER Adam Harrison-Fuller <adam@adamhf.io>
 
 # Define Mumble version
 ARG MUMBLE_VERSION=1.3.0
 
 # Create Mumble directories
-RUN mkdir -pv /opt/mumble /etc/mumble
+RUN mkdir -pv /opt/mumble /etc/mumble /build/mumble
+
+WORKDIR /build/mumble
 
 # Create non-root user
-RUN adduser -DHs /sbin/nologin mumble
+RUN useradd -ms /sbin/nologin mumble
 
 # Copy config file
 COPY files/config.ini /etc/mumble/config.ini
@@ -21,10 +23,31 @@ RUN chmod +x /usr/local/bin/supw
 ARG BZIP_URL=https://github.com/mumble-voip/mumble/releases/download/${MUMBLE_VERSION}/murmur-static_x86-${MUMBLE_VERSION}.tar.bz2
 
 # Install dependencies, fetch Mumble bzip archive and chown files
-RUN apk add --update ca-certificates bzip2 tar tzdata wget \
-    && wget -qO- ${BZIP_URL} | tar -xjv --strip-components=1 -C /opt/mumble \
-    && apk del ca-certificates bzip2 tar wget && rm -rf /var/cache/apk/* \
-    && chown -R mumble:mumble /etc/mumble /opt/mumble
+# RUN apk add --update ca-certificates bzip2 tar tzdata wget \
+#     && wget -qO- ${BZIP_URL} | tar -xjv --strip-components=1 -C /opt/mumble \
+#     && apk del ca-certificates bzip2 tar wget && rm -rf /var/cache/apk/* \
+#     && chown -R mumble:mumble /etc/mumble /opt/mumble
+
+RUN apt-get update && apt-get install -y build-essential pkg-config qt5-default qttools5-dev-tools libqt5svg5-dev \
+    libboost-dev libasound2-dev libssl-dev \
+    libspeechd-dev libzeroc-ice-dev libpulse-dev \
+    libcap-dev libprotobuf-dev protobuf-compiler \
+    libogg-dev libavahi-compat-libdnssd-dev libsndfile1-dev \
+    libg15daemon-client-dev libxi-dev git
+
+RUN git clone https://github.com/mumble-voip/mumble.git mumble &&\
+    cd mumble &&\ 
+    git checkout ${MUMBLE_VERSION} &&\
+    git submodule init &&\
+    git submodule update
+
+RUN cd mumble && \
+    qmake -recursive main.pro CONFIG+=no-client && \
+    make -j4 && \
+    chmod +x release/murmurd && \
+    cp release/murmurd /opt/mumble
+
+RUN chown mumble:mumble /etc/mumble
 
 # Expose ports
 EXPOSE 64738 64738/udp
@@ -36,4 +59,4 @@ USER mumble
 VOLUME /etc/mumble
 
 # Default command
-CMD ["/opt/mumble/murmur.x86", "-fg", "-ini", "/etc/mumble/config.ini"]
+CMD ["/opt/mumble/murmurd", "-fg", "-ini", "/etc/mumble/config.ini"]
