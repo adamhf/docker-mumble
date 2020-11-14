@@ -4,7 +4,7 @@ MAINTAINER Adam Harrison-Fuller <adam@adamhf.io>
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Define Mumble version
-ARG MUMBLE_VERSION=1.3.0
+ARG MUMBLE_VERSION=1.3.3
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -45,6 +45,12 @@ RUN git clone https://github.com/mumble-voip/mumble.git mumble && \
 
 FROM ubuntu:18.04
 
+# Add Tini
+ENV TINI_VERSION v0.19.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-armhf /tini
+RUN chmod +x /tini
+ENTRYPOINT ["/tini", "--"]
+
 ENV DEBIAN_FRONTEND=noninteractive
 # Create non-root user
 RUN useradd -ms /sbin/nologin mumble
@@ -77,3 +83,4 @@ VOLUME /config
 
 # Default command
 CMD ["/opt/mumble/murmurd", "-fg", "-ini", "/config/murmur.ini"]
+
