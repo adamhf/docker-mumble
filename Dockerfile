@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 AS builder
+FROM ubuntu:18.04 AS builder
 MAINTAINER Adam Harrison-Fuller <adam@adamhf.io>
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -43,11 +43,11 @@ RUN git clone https://github.com/mumble-voip/mumble.git mumble && \
     make -j4
 
 
-FROM ubuntu:20.04
+FROM ubuntu:18.04
 
 # Add Tini
 ENV TINI_VERSION v0.19.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-arm64 /tini
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-armhf /tini
 RUN chmod +x /tini
 ENTRYPOINT ["/tini", "--"]
 
@@ -60,7 +60,7 @@ RUN mkdir -pv /opt/mumble /config /data && chown mumble:mumble /data /config
 RUN apt-get update && apt-get -y install \
     libcap2 \
     libssl1.1 \
-    libprotobuf17 \
+    libprotobuf10 \
     libavahi-compat-libdnssd1 \
     libqt5network5 \
     libqt5sql5 \
@@ -83,3 +83,4 @@ VOLUME /config
 
 # Default command
 CMD ["/opt/mumble/murmurd", "-fg", "-ini", "/config/murmur.ini"]
+
